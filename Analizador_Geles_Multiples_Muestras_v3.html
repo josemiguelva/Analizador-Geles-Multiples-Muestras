@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="author" content="José Miguel Villarreal · Departamento de Química, Facultad de Ciencias, Universidad Nacional de Colombia">
+<title>Analizador de Geles · Calibración de peso molecular</title>
+<style>
+:root{--ink:#243447;--muted:#6b7a8c;--line:#d9e0e8;--primary:#2563eb;--ok:#1e8449;--warn:#a86a00;--bad:#c0392b;--card:#fff;--soft:#f5f7fa}
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;margin:0;padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;color:var(--ink)}
+.app{max-width:1400px;margin:auto;display:grid;gap:16px}
+.card{background:var(--card);border-radius:12px;padding:18px 20px;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+h1{margin:0 0 4px;font-size:1.45rem}
+h2{margin:0 0 12px;font-size:1.05rem}
+.sub{margin:0;color:var(--muted);font-size:.9rem}
+.credit{margin:0 0 8px;font-size:.88rem;color:#3b4b5e;padding:6px 12px;background:#eef2f7;border-left:4px solid var(--primary);border-radius:4px}
+.foot{margin:0;text-align:center;color:#fff;font-size:.82rem;opacity:.92}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.grid2{display:grid;grid-template-columns:5fr 7fr;gap:16px}
+@media(max-width:980px){.grid2{grid-template-columns:1fr}}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.field label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em}
+.field input[type=text],.field input[type=number],.field select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:.95rem;background:#fff}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg label{display:inline-flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-size:.92rem;color:var(--ink);font-weight:500;border:1px solid var(--line);padding:7px 12px;border-radius:6px;cursor:pointer;margin:0;background:var(--soft)}
+.seg input:checked+span{color:var(--primary);font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{border:1px solid var(--line);padding:5px 7px;text-align:center}
+th{background:#eef2f7;color:#3b4b5e;font-weight:600;font-size:.8rem}
+td input{width:100%;min-width:70px;padding:5px 7px;border:1px solid var(--line);border-radius:4px;font-size:.92rem}
+td.left,th.left{text-align:left}
+button{font:inherit;font-size:.9rem;background:var(--primary);color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer}
+button:hover{filter:brightness(.92)}
+button.ghost{background:#eef2f7;color:var(--ink);border:1px solid var(--line)}
+button.icon{padding:4px 9px;background:#fff;color:var(--bad);border:1px solid var(--line)}
+.note{font-size:.82rem;color:var(--muted);margin:8px 0 0}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:8px 0 12px}
+.metric{background:var(--soft);border-radius:8px;padding:8px 12px}
+.metric b{display:block;font-size:1.05rem}
+.metric span{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.eq{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--soft);padding:8px 12px;border-radius:6px;font-size:.9rem;overflow-x:auto;margin:6px 0}
+ul.msgs{list-style:none;margin:8px 0;padding:0;display:grid;gap:6px}
+ul.msgs li{padding:7px 12px;border-radius:6px;font-size:.88rem;border-left:4px solid}
+li.info{background:#e8f1fe;border-color:#2563eb}
+li.warn{background:#fff6e0;border-color:#d99100}
+li.bad{background:#fdeaea;border-color:var(--bad)}
+.swatch{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:1px solid rgba(0,0,0,.25)}
+.tag{display:inline-block;font-size:.7rem;padding:1px 7px;border-radius:10px;background:#dff5e6;color:var(--ok);margin-left:4px;font-weight:700}
+.tag.sel{background:#e0e9ff;color:var(--primary)}
+.x{color:var(--warn);font-weight:700}
+.err-ok{color:var(--ok)}.err-mid{color:var(--warn)}.err-bad{color:var(--bad);font-weight:700}
+.scroll{overflow:auto;border-radius:8px}
+canvas{display:block;max-width:none}
+#chartBox canvas{max-width:100%}
+.readout{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85rem;color:var(--muted);min-height:1.4em;margin-top:6px}
+.inline{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:0 0 10px;font-size:.9rem}
+.inline label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+details summary{cursor:pointer;font-weight:600}
+details p,details li{font-size:.88rem;line-height:1.5}
+@media print{body{background:#fff;padding:0}.toolbar,button,.inline{display:none!important}.card{box-shadow:none;break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="card">
+  <h1>🧬 Analizador de Geles · Calibración de peso molecular</h1>
+  <p class="credit">Elaborado por el profesor <b>José Miguel Villarreal</b> · Departamento de Química, Facultad de Ciencias, Universidad Nacional de Colombia</p>
+  <p class="sub">Estima el tamaño de fragmentos de ácidos nucleicos (agarosa) o proteínas (SDS-PAGE) a partir de un marcador, con ajuste, incertidumbre y simulación del gel. Funciona sin conexión.</p>
+  <div class="toolbar">
+    <button class="ghost" id="btnSave">💾 Guardar sesión</button>
+    <button class="ghost" id="btnLoad">📂 Cargar sesión</button>
+    <button class="ghost" id="btnCsv">📄 Exportar resultados (CSV)</button>
+    <button class="ghost" id="btnPngGel">🖼️ PNG del gel</button>
+    <button class="ghost" id="btnPngChart">📈 PNG de la curva</button>
+    <button class="ghost" onclick="window.print()">🖨️ Imprimir</button>
+    <input type="file" id="fileLoad" accept=".json,application/json" hidden>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Configuración</h2>
+  <div class="opts">
+    <div class="field">
+      <label>Tipo de gel</label>
+      <div class="seg">
+        <label><input type="radio" name="gelType" value="nucleic" checked hidden><span>🧬 DNA/RNA · agarosa</span></label>
+        <label><input type="radio" name="gelType" value="protein" hidden><span>🔬 Proteínas · SDS-PAGE</span></label>
+      </div>
+    </div>
+    <div class="field">
+      <label for="gelTitle">Título del gel (opcional)</label>
+      <input type="text" id="gelTitle" placeholder="p. ej. Agarosa 1 % · producto de PCR">
+    </div>
+    <div class="field">
+      <label for="preset">Marcador predefinido</label>
+      <select id="preset"></select>
+    </div>
+    <div class="field">
+      <label for="modelKey">Modelo de calibración</label>
+      <select id="modelKey">
+        <option value="linear">Lineal: log₁₀(tamaño) vs. migración</option>
+        <option value="quad">Polinomio grado 2</option>
+        <option value="cubic">Polinomio grado 3</option>
+        <option value="p2p">Interpolación punto a punto (semilog)</option>
+        <option value="auto">Automático (menor error de validación cruzada)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="xMode">Variable de migración</label>
+      <select id="xMode">
+        <option value="dist">Distancia (cm)</option>
+        <option value="rf">Movilidad relativa Rf = d / frente</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="front">Frente de corrida (cm, opcional)</label>
+      <input type="number" id="front" min="0" step="any" placeholder="distancia del azul de bromofenol">
+    </div>
+    <div class="field">
+      <label for="exclusion">Límite de exclusión del gel (<span id="exclLabel">pb</span>, opcional)</label>
+      <input type="number" id="exclusion" min="0" step="any" placeholder="50000 (pb, por defecto)" title="Tamaño a partir del cual las moléculas no se resuelven y quedan retenidas en el pocillo">
+    </div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <h2>1. Marcador de peso molecular <span style="font-weight:400;color:var(--muted)">(mín. 3 bandas)</span></h2>
+    <table>
+      <thead><tr><th>Tamaño <span id="unitLabel">(pb)</span></th><th>Distancia (cm)</th><th>Calculado</th><th>Error %</th><th></th></tr></thead>
+      <tbody id="markerBody"></tbody>
+    </table>
+    <div class="toolbar"><button class="ghost" id="addMarker">+ Banda del marcador</button></div>
+    <p class="note" id="markerNote"></p>
+  </div>
+  <div class="card">
+    <h2>2. Muestras <span style="font-weight:400;color:var(--muted)">(medidas y/o tamaños conocidos)</span></h2>
+    <table>
+      <thead><tr><th class="left">Nombre</th><th>Distancias medidas (cm)</th><th>Tamaño conocido → posición</th><th class="left">Resultado</th><th></th></tr></thead>
+      <tbody id="sampleBody"></tbody>
+    </table>
+    <div class="toolbar"><button class="ghost" id="addSample">+ Muestra</button></div>
+    <p class="note"><b>Distancias medidas:</b> varias bandas por carril separadas con espacio o «;» (p. ej. <code>5.8 3.2 1.1</code>). <b>Tamaño conocido:</b> escriba el tamaño esperado y el programa calcula dónde migraría (p. ej. <code>250</code>, <code>1.5 kb</code>, <code>4 Mb</code>; en proteínas <code>30 kDa</code>). Sin unidad se asume pb o kDa. Se acepta coma o punto decimal.</p>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Resultados</h2>
+  <div id="summary"></div>
+  <ul class="msgs" id="msgs"></ul>
+  <div class="scroll"><table id="resTable"></table></div>
+  <p class="note">IP 95 %: intervalo de predicción al 95 % según el ajuste (no disponible en punto a punto). En bandas medidas es el intervalo del tamaño; en bandas predichas, el de la posición en cm. * = extrapolación fuera del rango del marcador: resultado poco fiable.</p>
+</div>
+
+<div class="card">
+  <h2>Simulación del gel</h2>
+  <div class="inline">
+    <label><input type="checkbox" id="colorSamples" checked> Colorear carriles (didáctico)</label>
+    <label><input type="checkbox" id="repeatMarker"> Repetir marcador al final</label>
+  </div>
+  <div class="scroll"><canvas id="gelCanvas"></canvas></div>
+  <div class="readout" id="readout">Pase el cursor sobre el gel para estimar el tamaño en cualquier posición.</div>
+</div>
+
+<div class="card">
+  <h2>Curva de calibración</h2>
+  <div id="chartBox"><canvas id="chartCanvas"></canvas></div>
+</div>
+
+<div class="card">
+  <h2>Comparación de modelos</h2>
+  <div class="scroll"><table id="modelTable"></table></div>
+  <p class="note">Error LOO: raíz del error cuadrático medio de validación cruzada «dejar uno fuera» (en log₁₀). Un valor menor indica mejor capacidad predictiva con los datos disponibles.</p>
+</div>
+
+<div class="card">
+  <details>
+    <summary>Notas metodológicas</summary>
+    <ul>
+      <li><b>Modelo.</b> La migración es aproximadamente lineal con log₁₀(tamaño) solo en el rango útil del gel. Cerca de los extremos la curva se aplana; por eso se ofrecen modelos polinómicos y la interpolación punto a punto.</li>
+      <li><b>Rf.</b> Normalizar por el frente de corrida reduce la variación entre geles o entre carreras con distinta duración o voltaje.</li>
+      <li><b>Incertidumbre.</b> El IP 95 % usa la distribución t de Student con los grados de libertad del ajuste; con pocas bandas el intervalo es muy amplio.</li>
+      <li><b>Extrapolar</b> más allá de la primera o la última banda del marcador no es recomendable.</li>
+      <li><b>Proteínas.</b> Proteínas glicosiladas, muy básicas o de membrana, y marcadores preteñidos, pueden migrar de forma anómala frente a su masa real. Verifique los valores del marcador con la hoja técnica del lote.</li>
+      <li><b>Predicción de posición.</b> Para un tamaño conocido se invierte la curva de calibración. Más allá del primer o último fragmento del marcador se extrapola con la pendiente del extremo, y el resultado se marca como poco fiable.</li>
+      <li><b>Límite de resolución.</b> Un gel solo resuelve un intervalo de tamaños. En agarosa convencional, el ADN de decenas de kb en adelante migra con una movilidad límite casi independiente del tamaño, y el de varios Mb (cromosomas, genomas) queda retenido en el pocillo; para resolverlo se requiere electroforesis en campo pulsado (PFGE). En SDS-PAGE, los complejos muy grandes quedan en la parte superior del gel. El límite de exclusión por defecto (50 kb en ácidos nucleicos, 500 kDa en proteínas) es orientativo: ajústelo según el % de agarosa o de acrilamida.</li>
+      <li><b>Marcadores predefinidos.</b> Las distancias que se cargan con ellos son <u>simuladas</u> solo para demostración; reemplácelas por sus mediciones.</li>
+    </ul>
+  </details>
+</div>
+
+<p class="foot">Analizador de Geles · Profesor José Miguel Villarreal · Departamento de Química, Facultad de Ciencias, Universidad Nacional de Colombia</p>
+
+</div>
+
+<script>
+/*MATH-START*/
+const T95=[null,12.706,4.303,3.182,2.776,2.571,2.447,2.365,2.306,2.262,2.228,2.201,2.179,2.160,2.145,2.131,2.120,2.110,2.101,2.093,2.086,2.080,2.074,2.069,2.064,2.060,2.056,2.052,2.048,2.045,2.042];
+function tCrit(df){ if(df<=30) return T95[df]; if(df<=40) return 2.021; if(df<=60) return 2.000; if(df<=120) return 1.980; return 1.960; }
+
+function matInv(A){
+  const n=A.length;
+  const M=A.map((r,i)=>[...r,...Array.from({length:n},(_,j)=>i===j?1:0)]);
+  for(let c=0;c<n;c++){
+    let p=c;
+    for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[p][c])) p=r;
+    if(Math.abs(M[p][c])<1e-12) return null;
+    [M[c],M[p]]=[M[p],M[c]];
+    const d=M[c][c];
+    for(let j=0;j<2*n;j++) M[c][j]/=d;
+    for(let r=0;r<n;r++) if(r!==c){
+      const f=M[r][c];
+      if(f!==0) for(let j=0;j<2*n;j++) M[r][j]-=f*M[c][j];
+    }
+  }
+  return M.map(r=>r.slice(n));
+}
+
+function expandPoly(beta,c,s){
+  const a=1/s,b=-c/s;
+  let pw=[1];
+  const out=new Array(beta.length).fill(0);
+  for(let k=0;k<beta.length;k++){
+    for(let i=0;i<pw.length;i++) out[i]+=beta[k]*pw[i];
+    const nx=new Array(pw.length+1).fill(0);
+    for(let i=0;i<pw.length;i++){ nx[i]+=pw[i]*b; nx[i+1]+=pw[i]*a; }
+    pw=nx;
+  }
+  return out;
+}
+
+// Ajuste polinómico por mínimos cuadrados (x centrada y escalada). Requiere gl >= 1.
+function polyFit(xs,ys,deg){
+  const n=xs.length,p=deg+1;
+  if(n<p+1) return null;
+  const mn=Math.min(...xs),mx=Math.max(...xs);
+  const c=(mn+mx)/2,s=(mx-mn)/2;
+  if(!(s>0)) return null;
+  const row=x=>{const z=(x-c)/s;const r=[1];for(let k=1;k<p;k++)r.push(r[k-1]*z);return r;};
+  const X=xs.map(row);
+  const XtX=Array.from({length:p},(_,i)=>Array.from({length:p},(_,j)=>X.reduce((a,r)=>a+r[i]*r[j],0)));
+  const Xty=Array.from({length:p},(_,i)=>X.reduce((a,r,k)=>a+r[i]*ys[k],0));
+  const inv=matInv(XtX);
+  if(!inv) return null;
+  const beta=inv.map(r=>r.reduce((a,v,j)=>a+v*Xty[j],0));
+  const fit=X.map(r=>r.reduce((a,v,j)=>a+v*beta[j],0));
+  const res=ys.map((y,i)=>y-fit[i]);
+  const ssRes=res.reduce((a,e)=>a+e*e,0);
+  const ym=ys.reduce((a,b)=>a+b,0)/n;
+  const ssTot=ys.reduce((a,y)=>a+(y-ym)**2,0);
+  const df=n-p,s2=ssRes/df;
+  const quad=r=>{let q=0;for(let i=0;i<p;i++)for(let j=0;j<p;j++)q+=r[i]*inv[i][j]*r[j];return q;};
+  let press=0;
+  X.forEach((r,i)=>{const h=quad(r);press+=(res[i]/(1-h))**2;});
+  const r2=ssTot>0?1-ssRes/ssTot:1;
+  const r2adj=1-(1-r2)*(n-1)/df;
+  return {type:'poly',deg,n,p,df,coef:expandPoly(beta,c,s),res,r2,r2adj,
+    sd:Math.sqrt(s2),loo:Math.sqrt(press/n),
+    y:x=>row(x).reduce((a,v,j)=>a+v*beta[j],0),
+    pi:x=>tCrit(df)*Math.sqrt(s2*(1+quad(row(x))))};
+}
+
+// Interpolación lineal por tramos en (x, log10 tamaño)
+function p2pFit(xs,ys){
+  const pts=xs.map((x,i)=>[x,ys[i]]).sort((a,b)=>a[0]-b[0]);
+  if(pts.length<2) return null;
+  for(let i=1;i<pts.length;i++) if(pts[i][0]===pts[i-1][0]) return null;
+  const y=x=>{
+    let i=0;
+    if(x<=pts[0][0]) i=0;
+    else if(x>=pts[pts.length-1][0]) i=pts.length-2;
+    else while(pts[i+1][0]<x) i++;
+    const [x0,y0]=pts[i],[x1,y1]=pts[i+1];
+    return y0+(y1-y0)*(x-x0)/(x1-x0);
+  };
+  return {type:'p2p',n:pts.length,df:null,y,pi:null,r2:null,r2adj:null,sd:null,loo:null};
+}
+
+function isDecreasing(model,xmin,xmax){
+  let prev=model.y(xmin);
+  for(let k=1;k<=200;k++){
+    const v=model.y(xmin+(xmax-xmin)*k/200);
+    if(v>prev+1e-9) return false;
+    prev=v;
+  }
+  return true;
+}
+
+function parseNums(str){
+  return String(str).replace(/(\d),(\d)/g,'$1.$2').split(/[;,|\s]+/).filter(Boolean).map(Number).filter(v=>isFinite(v));
+}
+function trimNum(v,dec){ return String(+v.toFixed(dec)); }
+function fmtSize(size,gel){
+  if(!isFinite(size)) return '—';
+  if(gel==='nucleic'){
+    if(size>=1e6) return trimNum(size/1e6,2)+' Mb';
+    return size>=1000 ? trimNum(size/1000,size>=10000?1:2)+' kb' : trimNum(size,size<100?1:0)+' pb';
+  }
+  return size>=1000 ? trimNum(size/1000,2)+' MDa' : trimNum(size,size<10?2:1)+' kDa';
+}
+function niceStep(span,target){
+  const raw=span/target,mag=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/mag;
+  return (n<1.5?1:n<3?2:n<7?5:10)*mag;
+}
+// Lee tamaños con unidad ("250", "1.5 kb", "4 Mb", "30 kDa"). Devuelve valores en pb o kDa.
+function parseSizes(str,gel){
+  const out=[],bad=[],re=/(\d+(?:[.,]\d+)?)\s*([a-zA-Z]*)/g;
+  const F=gel==='nucleic'
+    ?{'':1,pb:1,bp:1,nt:1,kb:1e3,kpb:1e3,mb:1e6,mpb:1e6,gb:1e9}
+    :{'':1,kda:1,kd:1,da:1e-3,d:1e-3,mda:1e3,md:1e3};
+  let m;
+  while((m=re.exec(String(str)))){
+    const v=parseFloat(m[1].replace(',','.')),f=F[m[2].toLowerCase()];
+    if(f===undefined||!(v>0)) bad.push(m[0].trim()); else out.push(v*f);
+  }
+  return {vals:out,bad};
+}
+
+// Posición x (distancia o Rf) correspondiente a un log10(tamaño) y. Dentro del rango del marcador
+// se resuelve por bisección; fuera, se extrapola con la pendiente del extremo. null si no es posible.
+function invertModel(model,y,xmin,xmax){
+  const h=(xmax-xmin)*1e-3||1e-6;
+  const yTop=model.y(xmin),yBot=model.y(xmax);
+  if(y<=yTop&&y>=yBot){
+    let a=xmin,b=xmax;
+    for(let i=0;i<100;i++){const mid=(a+b)/2;if(model.y(mid)>y)a=mid;else b=mid;}
+    return (a+b)/2;
+  }
+  if(y>yTop){const s=(model.y(xmin+h)-yTop)/h;return s<-1e-9?xmin+(y-yTop)/s:null;}
+  const s=(yBot-model.y(xmax-h))/h;
+  return s<-1e-9?xmax+(y-yBot)/s:null;
+}
+/*MATH-END*/
+
+/* ---------- Constantes de UI ---------- */
+const $=id=>document.getElementById(id);
+const PAL_DARK=['#ff4d4d','#3ddc84','#ffd23f','#ff5cff','#3fe0ff','#ff9a3c','#a78bfa','#9ae66e','#ff7aa2','#5ea1ff'];
+const PAL_LIGHT=['#c0392b','#1e8449','#b7950b','#8e44ad','#117a8b','#d35400','#5b3cc4','#4d8f1d','#c2185b','#1f5fbf'];
+const MODEL_NAMES={linear:'Lineal',quad:'Polinomio grado 2',cubic:'Polinomio grado 3',p2p:'Punto a punto (semilog)'};
+
+function simDist(sizes){
+  const ls=sizes.map(Math.log10),lmax=Math.max(...ls),lmin=Math.min(...ls);
+  return ls.map(l=>{const t=(lmax-l)/((lmax-lmin)||1);return +(1.5+7*(t+0.12*t*(1-t))).toFixed(1);});
+}
+const PRESETS={
+  custom:{label:'Personalizado (ejemplo inicial)',gel:'nucleic',sizes:[100,500,1000,3000],dist:[8.2,6.1,4.9,3.5]},
+  ger100:{label:'GeneRuler 100 bp (pb)',gel:'nucleic',sizes:[1000,900,800,700,600,500,400,300,200,100]},
+  ger1k:{label:'GeneRuler 1 kb (pb)',gel:'nucleic',sizes:[10000,8000,6000,5000,4000,3500,3000,2500,2000,1500,1000,750,500,250]},
+  lhind:{label:'λ / HindIII (pb)',gel:'nucleic',sizes:[23130,9416,6557,4361,2322,2027,564]},
+  pr_pre:{label:'PageRuler Prestained (kDa)',gel:'protein',sizes:[180,130,100,70,55,35,25,15,10]},
+  pr_un:{label:'PageRuler Unstained (kDa)',gel:'protein',sizes:[200,150,120,100,85,70,60,50,40,30,25,20,15,10]},
+  bio_pp:{label:'Precision Plus Protein (kDa)',gel:'protein',sizes:[250,150,100,75,50,37,25,20,15,10]}
+};
+
+/* ---------- Tablas ---------- */
+function addMarkerRow(size='',dist=''){
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><input type="number" class="size" min="0" step="any" value="${size}" aria-label="Tamaño"></td>
+  <td><input type="number" class="dist" min="0" step="any" value="${dist}" aria-label="Distancia (cm)"></td>
+  <td class="calc">—</td><td class="err">—</td>
+  <td><button type="button" class="icon rm" title="Quitar">✕</button></td>`;
+  $('markerBody').appendChild(tr);
+}
+function addSampleRow(name,dists='',sizes=''){
+  const n=$('sampleBody').rows.length+1;
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td class="left"><input type="text" class="sname" value="${name||'Muestra '+n}" aria-label="Nombre"></td>
+  <td><input type="text" class="sdist" value="${dists}" inputmode="decimal" placeholder="5.8 3.2" aria-label="Distancias (cm)"></td>
+  <td><input type="text" class="ssize" value="${sizes}" placeholder="250 pb; 4 Mb" aria-label="Tamaño conocido"></td>
+  <td class="left scalc">—</td>
+  <td><button type="button" class="icon rm" title="Quitar">✕</button></td>`;
+  $('sampleBody').appendChild(tr);
+}
+function setMarkers(sizes,dists){
+  $('markerBody').innerHTML='';
+  sizes.forEach((s,i)=>addMarkerRow(s,dists?dists[i]:''));
+}
+function updateUnits(){
+  const nuc=getGel()==='nucleic';
+  $('unitLabel').textContent=nuc?'(pb)':'(kDa)';
+  $('exclLabel').textContent=nuc?'pb':'kDa';
+  $('exclusion').placeholder=nuc?'50000 (pb, por defecto)':'500 (kDa, por defecto)';
+}
+function getGel(){ return document.querySelector('input[name=gelType]:checked').value; }
+
+function applyPreset(key){
+  const p=PRESETS[key]; if(!p) return;
+  document.querySelector(`input[name=gelType][value=${p.gel}]`).checked=true;
+  updateUnits();
+  setMarkers(p.sizes,p.dist||simDist(p.sizes));
+  $('markerNote').textContent=p.dist?'':'Las distancias cargadas son simuladas (demostración). Reemplácelas por sus mediciones.';
+}
+
+/* ---------- Lectura de entradas ---------- */
+function readInputs(){
+  const markers=[...$('markerBody').rows].map(tr=>{
+    const size=parseFloat(tr.querySelector('.size').value),dist=parseFloat(tr.querySelector('.dist').value);
+    return {tr,size,dist,valid:size>0&&dist>=0&&isFinite(size)&&isFinite(dist)};
+  });
+  const gel=getGel();
+  const samples=[...$('sampleBody').rows].map(tr=>({
+    tr,name:tr.querySelector('.sname').value.trim()||'Sin nombre',
+    dists:parseNums(tr.querySelector('.sdist').value).filter(d=>d>=0),
+    known:parseSizes(tr.querySelector('.ssize').value,gel)
+  }));
+  const front=parseFloat($('front').value),excl=parseFloat($('exclusion').value);
+  return {gel,markers,samples,front:front>0?front:null,exclusion:excl>0?excl:null,xMode:$('xMode').value,modelKey:$('modelKey').value};
+}
+
+/* ---------- Cálculo ---------- */
+function compute(inp){
+  const out={ok:false,gel:inp.gel,inp,warns:[]};
+  const W=(l,t)=>out.warns.push({l,t});
+  let xMode=inp.xMode;
+  if(xMode==='rf'&&!inp.front){ W('warn','Para usar Rf indique el frente de corrida. Se usó la distancia en cm.'); xMode='dist'; }
+  out.xMode=xMode;
+  const xOf=d=>xMode==='rf'?d/inp.front:d;
+  out.xOf=xOf;
+  const mk=inp.markers.filter(m=>m.valid).map(m=>({...m,x:xOf(m.dist),y:Math.log10(m.size)}));
+  out.mk=mk;
+  if(mk.length<3){ out.error='Ingrese al menos 3 bandas válidas del marcador (tamaño > 0 y distancia ≥ 0).'; return out; }
+  if(xMode==='rf'&&mk.some(m=>m.x>1.0001)) W('warn','Hay bandas más allá del frente de corrida (Rf > 1). Revise las distancias o el frente.');
+  const xs=mk.map(m=>m.x),ys=mk.map(m=>m.y);
+  if(new Set(xs).size!==xs.length) W('warn','Hay bandas del marcador con la misma distancia.');
+  const sorted=[...mk].sort((a,b)=>a.x-b.x);
+  for(let i=1;i<sorted.length;i++) if(sorted[i].x>sorted[i-1].x&&sorted[i].size>=sorted[i-1].size){
+    W('bad','Las bandas del marcador no son monótonas: el tamaño debe disminuir al aumentar la migración. Revise los datos.'); break; }
+  const fits={linear:polyFit(xs,ys,1),quad:polyFit(xs,ys,2),cubic:polyFit(xs,ys,3),p2p:p2pFit(xs,ys)};
+  const polys=['linear','quad','cubic'].filter(k=>fits[k]);
+  if(!polys.length){ out.error='No se pudo ajustar: las distancias del marcador son idénticas.'; return out; }
+  const recommended=polys.reduce((b,k)=>fits[k].loo<fits[b].loo?k:b,polys[0]);
+  let key=inp.modelKey;
+  if(key==='auto') key=recommended;
+  if(!fits[key]){
+    W('warn',`El modelo «${MODEL_NAMES[key]}» necesita más bandas válidas o distancias distintas. Se usó el modelo lineal.`);
+    key='linear';
+  }
+  const model=fits[key];
+  Object.assign(out,{fits,key,model,recommended,polys});
+  const xmin=Math.min(...xs),xmax=Math.max(...xs);
+  out.xmin=xmin; out.xmax=xmax;
+  if(!isDecreasing(model,xmin,xmax)) W('bad','La curva ajustada no es monótona en el rango del marcador: el modelo es inadecuado (sobreajuste). Use el lineal o punto a punto.');
+  mk.forEach(m=>{ m.calc=Math.pow(10,model.y(m.x)); m.err=(m.calc-m.size)/m.size*100; });
+  const exclusion=inp.exclusion||(inp.gel==='nucleic'?50000:500);
+  const maxMk=Math.max(...mk.map(m=>m.dist));
+  const gelEnd=inp.front||maxMk*1.15;
+  const toCm=x=>xMode==='rf'?x*inp.front:x;
+  out.exclusion=exclusion;
+  out.samples=inp.samples.map((s,i)=>{
+    // bandas medidas: tamaño calculado desde la distancia
+    const bands=s.dists.map(d=>{
+      const x=xOf(d),y=model.y(x);
+      let lo=null,hi=null;
+      if(model.pi){const h=model.pi(x);lo=Math.pow(10,y-h);hi=Math.pow(10,y+h);}
+      const ex=x<xmin-1e-9||x>xmax+1e-9;
+      return {d,x,y,size:Math.pow(10,y),lo,hi,extrap:ex,status:ex?'extrap':'ok',origin:'medida',rf:inp.front?d/inp.front:null};
+    });
+    // bandas predichas: posición calculada desde el tamaño conocido
+    s.known.bad.forEach(t=>W('warn',`En «${s.name}» no se interpretó «${t}». Unidades válidas: ${inp.gel==='nucleic'?'pb, kb, Mb':'Da, kDa, MDa'}.`));
+    s.known.vals.forEach(sz=>{
+      const y=Math.log10(sz),x=invertModel(model,y,xmin,xmax);
+      if(x==null){ W('warn',`No se pudo predecir la posición de ${fmtSize(sz,inp.gel)} en «${s.name}» (la curva no tiene pendiente en el extremo).`); return; }
+      let d=toCm(x),status='ok';
+      if(sz>exclusion||d<=1e-4){ status='well'; d=0; }
+      else if(d>gelEnd){ status='off'; d=gelEnd; }
+      else if(x<xmin-1e-9||x>xmax+1e-9) status='extrap';
+      let dlo=null,dhi=null;
+      if(model.pi&&(status==='ok'||status==='extrap')){
+        const h=model.pi(x),a=invertModel(model,y+h,xmin,xmax),b=invertModel(model,y-h,xmin,xmax);
+        if(a!=null&&b!=null){dlo=toCm(a);dhi=toCm(b);}
+      }
+      bands.push({d,x:(status==='ok'||status==='extrap')?x:null,y,size:sz,lo:null,hi:null,dlo,dhi,
+        extrap:status==='extrap',status,origin:'predicha',rf:inp.front?d/inp.front:null});
+    });
+    return {name:s.name,ci:i,bands};
+  });
+  const nExtra=out.samples.reduce((a,s)=>a+s.bands.filter(b=>b.status==='extrap').length,0);
+  if(nExtra) W('warn',`${nExtra} banda(s) de muestra caen fuera del rango del marcador (extrapolación): resultado poco fiable.`);
+  const nWell=out.samples.reduce((a,s)=>a+s.bands.filter(b=>b.status==='well').length,0);
+  if(nWell) W('info',`${nWell} banda(s) predicha(s) no se resuelven en este gel: quedan retenidas en el pocillo (tamaño por encima del límite de exclusión de ${fmtSize(exclusion,inp.gel)} o del rango útil de la curva).${inp.gel==='nucleic'?' Moléculas de Mb requieren electroforesis en campo pulsado (PFGE).':''}`);
+  const nOff=out.samples.reduce((a,s)=>a+s.bands.filter(b=>b.status==='off').length,0);
+  if(nOff) W('warn',`${nOff} banda(s) predicha(s) migrarían más allá del frente de corrida o del final del gel: se perderían o co-migrarían con el colorante.`);
+  if(model.type==='poly'&&model.r2<0.98) W('warn',`R² = ${model.r2.toFixed(4)}: ajuste débil. Revise mediciones, pruebe otro modelo o use un marcador que cubra mejor el rango.`);
+  const maxErr=Math.max(...mk.map(m=>Math.abs(m.err)));
+  if(model.type==='poly'&&maxErr>15) W('warn',`El error máximo de retro-cálculo en el marcador es ${maxErr.toFixed(1)} %. Un modelo más flexible podría ajustar mejor.`);
+  if(key!==recommended&&model.type==='poly'&&fits[recommended].loo<0.75*model.loo)
+    W('info',`El modelo «${MODEL_NAMES[recommended]}» tiene menor error de validación cruzada (${fits[recommended].loo.toFixed(4)} vs. ${model.loo.toFixed(4)}).`);
+  if(inp.markers.some(m=>!m.valid&&(!isNaN(m.size)||!isNaN(m.dist)))) W('info','Se ignoraron filas incompletas o inválidas del marcador.');
+  out.ok=true;
+  return out;
+}
+
+/* ---------- Presentación de resultados ---------- */
+function fmtCoef(v){ return (v>=0?'+ ':'− ')+Math.abs(v).toPrecision(5); }
+function equationText(d){
+  const m=d.model,v=d.xMode==='rf'?'Rf':'d';
+  if(m.type==='p2p') return 'Interpolación lineal por tramos de log₁₀(tamaño) entre bandas adyacentes del marcador';
+  const c=m.coef,sup=['','','²','³'];
+  let s=`log₁₀(tamaño) = ${c[0].toPrecision(5)}`;
+  for(let k=1;k<c.length;k++) s+=` ${fmtCoef(c[k])}·${v}${sup[k]}`;
+  return s;
+}
+function errClass(e){ const a=Math.abs(e); return a<5?'err-ok':a<15?'err-mid':'err-bad'; }
+
+function paint(d){
+  const unit=d.gel==='nucleic'?'pb':'kDa';
+  // marcador
+  d.inp.markers.forEach(m=>{
+    const found=d.ok&&d.mk.find(k=>k.tr===m.tr);
+    m.tr.querySelector('.calc').textContent=found?fmtSize(found.calc,d.gel):'—';
+    const e=m.tr.querySelector('.err');
+    if(found){e.textContent=(found.err>=0?'+':'')+found.err.toFixed(1)+' %';e.className='err '+errClass(found.err);}
+    else{e.textContent='—';e.className='err';}
+  });
+  // muestras
+  d.inp.samples.forEach((s,i)=>{
+    const c=s.tr.querySelector('.scalc');
+    const sm=d.ok&&d.samples[i];
+    if(!sm||!sm.bands.length){c.textContent='—';return;}
+    const col=PAL_LIGHT[i%PAL_LIGHT.length];
+    c.innerHTML=sm.bands.map(b=>{
+      const sw=`<span class="swatch" style="background:${col}"></span>`;
+      if(b.origin==='medida') return `<div>${sw}<b>${fmtSize(b.size,d.gel)}</b>${b.extrap?'<span class="x"> *</span>':''}</div>`;
+      const pos=b.status==='well'?'<span class="x">pocillo (no se resuelve)</span>'
+        :b.status==='off'?'<span class="x">fuera del gel</span>'
+        :`${b.d.toFixed(2)} cm${b.extrap?'<span class="x"> *</span>':''}`;
+      return `<div>${sw}<b>${fmtSize(b.size,d.gel)}</b> → ${pos}</div>`;
+    }).join('');
+  });
+  // resumen
+  const sum=$('summary'),msgs=$('msgs'),rt=$('resTable'),mt=$('modelTable');
+  if(!d.ok){
+    sum.innerHTML=`<ul class="msgs"><li class="bad">${d.error}</li></ul>`;
+    msgs.innerHTML=d.warns.map(w=>`<li class="${w.l}">${w.t}</li>`).join('');
+    rt.innerHTML='';mt.innerHTML='';return;
+  }
+  const m=d.model;
+  const metric=(l,v)=>`<div class="metric"><span>${l}</span><b>${v}</b></div>`;
+  sum.innerHTML=`<div class="metrics">
+    ${metric('Modelo',MODEL_NAMES[d.key]+(inpIsAuto(d)?' (auto)':''))}
+    ${metric('Bandas del marcador',d.mk.length)}
+    ${metric('R²',m.r2!=null?m.r2.toFixed(4):'—')}
+    ${metric('R² ajustado',m.r2adj!=null?m.r2adj.toFixed(4):'—')}
+    ${metric('Desv. residual (log₁₀)',m.sd!=null?m.sd.toFixed(4):'—')}
+    ${metric('Error LOO (log₁₀)',m.loo!=null?m.loo.toFixed(4):'—')}
+    ${metric('Grados de libertad',m.df!=null?m.df:'—')}
+  </div><div class="eq">${equationText(d)}</div>`;
+  msgs.innerHTML=d.warns.map(w=>`<li class="${w.l}">${w.t}</li>`).join('');
+  // tabla de resultados
+  let h=`<thead><tr><th class="left">Muestra</th><th>Banda</th><th>Origen</th><th>Distancia (cm)</th><th>Rf</th><th>Tamaño</th><th>IP 95 %</th><th class="left">Estado</th></tr></thead><tbody>`;
+  let any=false;
+  d.samples.forEach(s=>{
+    const col=PAL_LIGHT[s.ci%PAL_LIGHT.length];
+    s.bands.forEach((b,j)=>{
+      any=true;
+      const pred=b.origin==='predicha';
+      const ip=pred?(b.dlo!=null?`${b.dlo.toFixed(2)} – ${b.dhi.toFixed(2)} cm`:'—'):(b.lo!=null?fmtSize(b.lo,d.gel)+' – '+fmtSize(b.hi,d.gel):'—');
+      const cls=b.status==='ok'?'':' class="x"';
+      h+=`<tr><td class="left"><span class="swatch" style="background:${col}"></span>${esc(s.name)}</td><td>${j+1}</td><td>${pred?'Predicha':'Medida'}</td>
+      <td>${b.status==='well'?'0 (pocillo)':b.d.toFixed(2)}</td><td>${b.rf!=null?b.rf.toFixed(3):'—'}</td>
+      <td><b>${fmtSize(b.size,d.gel)}</b></td><td>${ip}</td><td class="left"><span${cls}>${stateText(b)}</span></td></tr>`;
+    });
+  });
+  rt.innerHTML=any?h+'</tbody>':'<tbody><tr><td>Ingrese distancias de muestra para ver resultados.</td></tr></tbody>';
+  // comparación de modelos
+  let mh=`<thead><tr><th class="left">Modelo</th><th>R² ajustado</th><th>Desv. residual</th><th>Error LOO</th><th>g.l.</th></tr></thead><tbody>`;
+  ['linear','quad','cubic','p2p'].forEach(k=>{
+    const f=d.fits[k];
+    const tags=(k===d.key?'<span class="tag sel">en uso</span>':'')+(k===d.recommended?'<span class="tag">menor LOO</span>':'');
+    mh+=f?`<tr><td class="left">${MODEL_NAMES[k]}${tags}</td><td>${f.r2adj!=null?f.r2adj.toFixed(4):'—'}</td><td>${f.sd!=null?f.sd.toFixed(4):'—'}</td><td>${f.loo!=null?f.loo.toFixed(4):'—'}</td><td>${f.df!=null?f.df:'—'}</td></tr>`
+      :`<tr><td class="left">${MODEL_NAMES[k]}</td><td colspan="4" style="color:var(--muted)">No disponible (faltan bandas o distancias distintas)</td></tr>`;
+  });
+  mt.innerHTML=mh+'</tbody>';
+}
+function stateText(b){
+  if(b.status==='well') return 'Retenido en el pocillo: no se resuelve';
+  if(b.status==='off') return 'Sale del gel / migra con el frente';
+  if(b.status==='extrap') return 'Extrapolado (poco fiable)';
+  return 'Dentro del rango del marcador';
+}
+function inpIsAuto(d){ return d.inp.modelKey==='auto'&&d.key===d.recommended; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- Gel (canvas único) ---------- */
+const G={laneW:54,gap:64,plateX0:60,top:64,wellH:18,gelH:480};
+let S={data:null,hoverY:null,geom:null};
+
+function rgba(hex,a){
+  const n=parseInt(hex.slice(1),16);
+  return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;
+}
+function rrect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+function spread(items,min,hi){
+  items.sort((a,b)=>a.y-b.y);
+  items.forEach(it=>it.ly=it.y);
+  for(let i=1;i<items.length;i++) if(items[i].ly-items[i-1].ly<min) items[i].ly=items[i-1].ly+min;
+  if(items.length&&items[items.length-1].ly>hi){
+    items[items.length-1].ly=hi;
+    for(let i=items.length-2;i>=0;i--) if(items[i+1].ly-items[i].ly<min) items[i].ly=items[i+1].ly-min;
+  }
+}
+function drawBand(ctx,x,y,w,color,dark){
+  const h=5,g=ctx.createLinearGradient(x,0,x+w,0);
+  g.addColorStop(0,rgba(color,.25));g.addColorStop(.3,rgba(color,.92));g.addColorStop(.5,color);g.addColorStop(.7,rgba(color,.92));g.addColorStop(1,rgba(color,.25));
+  ctx.save();
+  ctx.shadowColor=color;ctx.shadowBlur=dark?10:3;
+  ctx.fillStyle=g;rrect(ctx,x,y-h/2,w,h,2);ctx.fill();
+  ctx.restore();
+}
+
+// Banda retenida en el pocillo (molécula demasiado grande para el gel) con una leve estela
+function drawWell(ctx,x,color,dark){
+  const y=G.top+6+G.wellH/2;
+  ctx.save();
+  ctx.shadowColor=color;ctx.shadowBlur=dark?12:4;
+  ctx.fillStyle=color;rrect(ctx,x+4,y-5,G.laneW-8,10,3);ctx.fill();
+  ctx.restore();
+  const g=ctx.createLinearGradient(0,y+5,0,y+30);
+  g.addColorStop(0,rgba(color,.35));g.addColorStop(1,rgba(color,0));
+  ctx.fillStyle=g;ctx.fillRect(x+8,y+5,G.laneW-16,25);
+}
+
+function drawGel(){
+  const cv=$('gelCanvas'),d=S.data,ctx=cv.getContext('2d');
+  if(!d||!d.ok){cv.width=cv.height=0;cv.style.width=cv.style.height='0px';S.geom=null;return;}
+  const dark=d.gel==='nucleic',colored=$('colorSamples').checked,repeat=$('repeatMarker').checked;
+  const mkBands=d.mk.map(m=>({d:m.dist,label:fmtSize(m.size,d.gel)}));
+  const lanes=[{kind:'m',name:'Marcador',bands:mkBands,side:'L'}];
+  d.samples.forEach(s=>lanes.push({kind:'s',name:s.name,ci:s.ci,bands:s.bands.map(b=>({d:b.d,st:b.status,label:fmtSize(b.size,d.gel)+(b.status==='extrap'?'*':b.status==='well'?' (pocillo)':b.status==='off'?' (fuera)':'')})),side:'R'}));
+  if(repeat) lanes.push({kind:'m',name:'Marcador',bands:mkBands,side:'R'});
+  const pitch=G.laneW+G.gap,n=lanes.length;
+  const lane0=G.plateX0+G.gap;
+  const plateX1=lane0+(n-1)*pitch+G.laneW+G.gap;
+  const W=plateX1+56,H=G.top+G.gelH+26;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  const allD=[...mkBands.map(b=>b.d),...lanes.flatMap(l=>l.bands.map(b=>b.d))];
+  const maxDist=(Math.max(d.inp.front||0,...allD)*1.06)||1;
+  const originY=G.top+6+G.wellH,trackH=G.gelH-(6+G.wellH)-12;
+  const yOf=dist=>originY+dist/maxDist*trackH;
+  S.geom={originY,trackH,maxDist,plateX0:G.plateX0,plateX1,top:G.top,bottom:G.top+G.gelH};
+
+  // títulos
+  ctx.fillStyle='#243447';ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  ctx.font='bold 14px system-ui,Arial';
+  ctx.fillText($('gelTitle').value.trim()||(dark?'Gel de agarosa':'SDS-PAGE'),G.plateX0,20);
+  ctx.font='11px system-ui,Arial';ctx.fillStyle='#6b7a8c';
+  ctx.fillText(`${dark?'Ácidos nucleicos':'Proteínas'} · modelo ${MODEL_NAMES[d.key].toLowerCase()} · ${d.xMode==='rf'?'Rf':'distancia'}`,G.plateX0,36);
+
+  // placa
+  const pg=ctx.createLinearGradient(0,G.top,0,G.top+G.gelH);
+  if(dark){pg.addColorStop(0,'#0b0b12');pg.addColorStop(1,'#1b1b27');}else{pg.addColorStop(0,'#eef2f8');pg.addColorStop(1,'#dde5f0');}
+  ctx.fillStyle=pg;rrect(ctx,G.plateX0,G.top,plateX1-G.plateX0,G.gelH,8);ctx.fill();
+  ctx.strokeStyle=dark?'#555':'#aab4c3';ctx.lineWidth=2;ctx.stroke();
+
+  // regla
+  ctx.font='10px system-ui,Arial';ctx.fillStyle='#6b7a8c';ctx.strokeStyle='#8a97a8';ctx.lineWidth=1;ctx.textAlign='right';ctx.textBaseline='middle';
+  const step=niceStep(maxDist,9);
+  for(let v=0;v<=maxDist+1e-9;v+=step){
+    const y=yOf(v);ctx.beginPath();ctx.moveTo(G.plateX0-6,y);ctx.lineTo(G.plateX0,y);ctx.stroke();
+    ctx.fillText(+v.toFixed(2),G.plateX0-9,y);
+  }
+  ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillText('cm',G.plateX0-22,G.top+10);
+
+  // frente de corrida
+  if(d.inp.front){
+    const y=yOf(d.inp.front);
+    ctx.save();ctx.setLineDash([6,4]);ctx.strokeStyle='#4aa3ff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(G.plateX0+4,y);ctx.lineTo(plateX1-4,y);ctx.stroke();ctx.restore();
+    ctx.fillStyle='#4aa3ff';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('frente',plateX1+6,y);
+  }
+
+  // carriles
+  lanes.forEach((ln,i)=>{
+    const x=lane0+i*pitch;
+    ctx.fillStyle=dark?'rgba(255,255,255,.04)':'rgba(0,0,0,.035)';
+    ctx.fillRect(x,G.top+4,G.laneW,G.gelH-8);
+    ctx.fillStyle=dark?'rgba(0,0,0,.75)':'rgba(30,40,60,.55)';
+    rrect(ctx,x,G.top+6,G.laneW,G.wellH,3);ctx.fill();
+    ctx.fillStyle='#243447';ctx.font='10px system-ui,Arial';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+    let nm=ln.name;
+    while(nm.length>3&&ctx.measureText(nm).width>pitch-6) nm=nm.slice(0,-2);
+    if(nm!==ln.name) nm+='…';
+    ctx.fillText(nm,x+G.laneW/2,G.top-6);
+    // bandas
+    const color=ln.kind==='m'?(dark?'#dfe8ff':'#17305c'):(colored?(dark?PAL_DARK:PAL_LIGHT)[ln.ci%PAL_DARK.length]:(dark?'#ffb066':'#1b3a6b'));
+    const items=ln.bands.map(b=>({y:b.st==='well'?G.top+6+G.wellH/2:yOf(b.d),label:b.label,st:b.st}));
+    items.forEach(it=>{
+      if(it.st==='well') drawWell(ctx,x,color,dark);
+      else{ctx.globalAlpha=it.st==='off'?0.45:1;drawBand(ctx,x+3,it.y,G.laneW-6,color,dark);ctx.globalAlpha=1;}
+    });
+    // etiquetas
+    spread(items,12,G.top+G.gelH-8);
+    ctx.font='10px system-ui,Arial';ctx.textBaseline='middle';ctx.fillStyle=dark?'#e8ecf5':'#243447';ctx.strokeStyle=dark?'rgba(255,255,255,.35)':'rgba(0,0,0,.35)';ctx.lineWidth=1;
+    items.forEach(it=>{
+      if(ln.side==='L'){
+        ctx.textAlign='right';
+        const ex=x-2;ctx.beginPath();ctx.moveTo(ex,it.y);ctx.lineTo(ex-4,it.ly);ctx.stroke();
+        ctx.fillText(it.label,x-7,it.ly);
+      }else{
+        ctx.textAlign='left';
+        const ex=x+G.laneW+2;ctx.beginPath();ctx.moveTo(ex,it.y);ctx.lineTo(ex+4,it.ly);ctx.stroke();
+        ctx.fillText(it.label,x+G.laneW+7,it.ly);
+      }
+    });
+  });
+
+  // crédito
+  ctx.fillStyle='#8a97a8';ctx.font='9px system-ui,Arial';ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  ctx.fillText('J. M. Villarreal · Dpto. de Química · UNAL',G.plateX0,H-8);
+
+  // línea de cursor
+  if(S.hoverY!=null&&S.hoverY>=originY&&S.hoverY<=originY+trackH){
+    ctx.strokeStyle=dark?'rgba(255,255,255,.55)':'rgba(0,0,0,.45)';ctx.setLineDash([3,3]);
+    ctx.beginPath();ctx.moveTo(G.plateX0,S.hoverY);ctx.lineTo(plateX1,S.hoverY);ctx.stroke();ctx.setLineDash([]);
+  }
+}
+
+/* ---------- Curva de calibración ---------- */
+function drawChart(){
+  const cv=$('chartCanvas'),d=S.data;
+  const box=$('chartBox'),W=Math.max(480,box.clientWidth||900),H=440;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.width=W+'px';cv.style.height=H+'px';
+  const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
+  if(!d||!d.ok){ctx.fillStyle='#6b7a8c';ctx.font='14px system-ui,Arial';ctx.textAlign='center';ctx.fillText('Sin datos suficientes para la curva de calibración.',W/2,H/2);return;}
+  const L=74,R=24,T=28,B=54,pw=W-L-R,ph=H-T-B;
+  const sPts=d.samples.flatMap(s=>s.bands.filter(b=>b.status==='ok'||b.status==='extrap').map(b=>({x:b.x,y:b.y,ci:s.ci,extrap:b.extrap})));
+  const allX=[...d.mk.map(m=>m.x),...sPts.map(p=>p.x)];
+  let x0=Math.min(...allX),x1=Math.max(...allX);
+  const xp=(x1-x0)*0.06||0.5;x0-=xp;x1+=xp;
+  const curveY=[];
+  for(let k=0;k<=240;k++) curveY.push(d.model.y(x0+(x1-x0)*k/240));
+  const yPts=[...d.mk.map(m=>m.y),...sPts.map(p=>p.y)];
+  let y0=Math.min(...yPts)-0.15,y1=Math.max(...yPts)+0.15;
+  const X=x=>L+(x-x0)/(x1-x0)*pw,Y=y=>T+(1-(y-y0)/(y1-y0))*ph;
+  // ejes y cuadrícula
+  ctx.font='11px system-ui,Arial';ctx.lineWidth=1;
+  const span=y1-y0,mults=span>2?[1,2,5]:span>0.6?[1,2,3,5,7]:[1,1.25,1.5,2,2.5,3,4,5,6,7,8,9];
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let k=Math.floor(y0)-1;k<=Math.ceil(y1);k++) mults.forEach(mu=>{
+    const yv=Math.log10(mu*Math.pow(10,k));
+    if(yv<y0||yv>y1) return;
+    const py=Y(yv);ctx.strokeStyle=mu===1?'#d3dae3':'#eceff4';ctx.beginPath();ctx.moveTo(L,py);ctx.lineTo(L+pw,py);ctx.stroke();
+    ctx.fillStyle='#4b5a6c';ctx.fillText(fmtSize(mu*Math.pow(10,k),d.gel),L-8,py);
+  });
+  const xs=niceStep(x1-x0,8);
+  ctx.textAlign='center';ctx.textBaseline='top';
+  for(let v=Math.ceil(x0/xs)*xs;v<=x1+1e-9;v+=xs){
+    const px=X(v);ctx.strokeStyle='#eceff4';ctx.beginPath();ctx.moveTo(px,T);ctx.lineTo(px,T+ph);ctx.stroke();
+    ctx.fillStyle='#4b5a6c';ctx.fillText(+v.toFixed(3),px,T+ph+6);
+  }
+  ctx.strokeStyle='#8a97a8';ctx.strokeRect(L,T,pw,ph);
+  ctx.fillStyle='#243447';ctx.font='12px system-ui,Arial';ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillText(d.xMode==='rf'?'Movilidad relativa (Rf)':'Distancia de migración (cm)',L+pw/2,H-10);
+  ctx.save();ctx.translate(16,T+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText('Tamaño molecular (escala logarítmica)',0,0);ctx.restore();
+
+  ctx.save();ctx.beginPath();ctx.rect(L,T,pw,ph);ctx.clip();
+  // banda de predicción
+  if(d.model.pi){
+    ctx.fillStyle='rgba(37,99,235,.12)';ctx.beginPath();
+    for(let k=0;k<=240;k++){const x=x0+(x1-x0)*k/240;const yy=curveY[k]+d.model.pi(x);k?ctx.lineTo(X(x),Y(yy)):ctx.moveTo(X(x),Y(yy));}
+    for(let k=240;k>=0;k--){const x=x0+(x1-x0)*k/240;ctx.lineTo(X(x),Y(curveY[k]-d.model.pi(x)));}
+    ctx.closePath();ctx.fill();
+  }
+  // curva: tenue completa + sólida en rango
+  ctx.lineWidth=2.5;ctx.setLineDash([6,4]);ctx.strokeStyle='rgba(30,132,73,.6)';ctx.beginPath();
+  curveY.forEach((yy,k)=>{const x=x0+(x1-x0)*k/240;k?ctx.lineTo(X(x),Y(yy)):ctx.moveTo(X(x),Y(yy));});ctx.stroke();
+  ctx.setLineDash([]);ctx.strokeStyle='#1e8449';ctx.beginPath();let started=false;
+  curveY.forEach((yy,k)=>{const x=x0+(x1-x0)*k/240;if(x<d.xmin||x>d.xmax)return;started?ctx.lineTo(X(x),Y(yy)):ctx.moveTo(X(x),Y(yy));started=true;});ctx.stroke();
+  // guías de muestras
+  sPts.forEach(p=>{
+    const col=PAL_LIGHT[p.ci%PAL_LIGHT.length];
+    ctx.setLineDash([3,3]);ctx.strokeStyle=rgba(col,.7);ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(X(p.x),T+ph);ctx.lineTo(X(p.x),Y(p.y));ctx.lineTo(L,Y(p.y));ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  // puntos marcador
+  d.mk.forEach(m=>{ctx.fillStyle='#2563eb';ctx.beginPath();ctx.arc(X(m.x),Y(m.y),5,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();});
+  // puntos muestras (rombos)
+  sPts.forEach(p=>{
+    const col=PAL_LIGHT[p.ci%PAL_LIGHT.length],cx=X(p.x),cy=Y(p.y);
+    ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(cx,cy-7);ctx.lineTo(cx+7,cy);ctx.lineTo(cx,cy+7);ctx.lineTo(cx-7,cy);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+  });
+  ctx.restore();
+  // leyenda
+  let lx=L+10,ly=T+14;ctx.font='11px system-ui,Arial';ctx.textAlign='left';ctx.textBaseline='middle';
+  const leg=(draw,txt)=>{draw(lx,ly);ctx.fillStyle='#243447';ctx.fillText(txt,lx+14,ly);ly+=16;};
+  ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(L+4,T+4,200,16*(2+d.samples.length)+(d.model.pi?16:0)+6);
+  leg((x,y)=>{ctx.fillStyle='#2563eb';ctx.beginPath();ctx.arc(x+4,y,4,0,7);ctx.fill();},'Marcador');
+  leg((x,y)=>{ctx.strokeStyle='#1e8449';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x-2,y);ctx.lineTo(x+10,y);ctx.stroke();},MODEL_NAMES[d.key]);
+  if(d.model.pi) leg((x,y)=>{ctx.fillStyle='rgba(37,99,235,.25)';ctx.fillRect(x-2,y-5,12,10);},'IP 95 %');
+  d.samples.forEach(s=>{if(!s.bands.length)return;leg((x,y)=>{ctx.fillStyle=PAL_LIGHT[s.ci%PAL_LIGHT.length];ctx.beginPath();ctx.moveTo(x+4,y-5);ctx.lineTo(x+9,y);ctx.lineTo(x+4,y+5);ctx.lineTo(x-1,y);ctx.fill();},s.name);});
+}
+
+/* ---------- Render principal ---------- */
+let raf=0;
+function schedule(){cancelAnimationFrame(raf);raf=requestAnimationFrame(render);}
+function render(){
+  const inp=readInputs();
+  S.data=compute(inp);
+  paint(S.data);
+  drawGel();
+  drawChart();
+}
+
+/* ---------- Interacción con el gel ---------- */
+$('gelCanvas').addEventListener('mousemove',e=>{
+  const g=S.geom,d=S.data;if(!g||!d||!d.ok)return;
+  const r=e.currentTarget.getBoundingClientRect(),y=e.clientY-r.top;
+  if(y<g.originY||y>g.originY+g.trackH){S.hoverY=null;$('readout').textContent='';drawGel();return;}
+  S.hoverY=y;
+  const dist=(y-g.originY)/g.trackH*g.maxDist,x=d.xOf(dist),size=Math.pow(10,d.model.y(x));
+  const ex=x<d.xmin-1e-9||x>d.xmax+1e-9;
+  $('readout').textContent=`Posición ${dist.toFixed(2)} cm${d.inp.front?` · Rf ${(dist/d.inp.front).toFixed(3)}`:''} → ≈ ${fmtSize(size,d.gel)}${ex?'  (extrapolado)':''}`;
+  drawGel();
+});
+$('gelCanvas').addEventListener('mouseleave',()=>{S.hoverY=null;$('readout').textContent='Pase el cursor sobre el gel para estimar el tamaño en cualquier posición.';drawGel();});
+
+/* ---------- Eventos generales ---------- */
+document.addEventListener('input',e=>{if(e.target.closest('.app'))schedule();});
+document.addEventListener('change',e=>{if(e.target.closest('.app'))schedule();});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.rm');
+  if(b){b.closest('tr').remove();schedule();}
+});
+document.querySelectorAll('input[name=gelType]').forEach(r=>r.addEventListener('change',()=>{updateUnits();schedule();}));
+$('preset').addEventListener('change',e=>{applyPreset(e.target.value);schedule();});
+$('addMarker').onclick=()=>{addMarkerRow();schedule();};
+$('addSample').onclick=()=>{addSampleRow();schedule();};
+window.addEventListener('resize',()=>{drawChart();});
+
+/* ---------- Exportar / sesión ---------- */
+function download(name,blob){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+$('btnPngGel').onclick=()=>{ if(S.geom) $('gelCanvas').toBlob(b=>download('gel.png',b)); };
+$('btnPngChart').onclick=()=>$('chartCanvas').toBlob(b=>download('curva_calibracion.png',b));
+$('btnCsv').onclick=()=>{
+  const d=S.data;if(!d||!d.ok)return;
+  const u=d.gel==='nucleic'?'pb':'kDa',dec=v=>v==null?'':String(v).replace('.',',');
+  const rows=[['Muestra','Banda','Origen','Distancia_cm','Rf',`Tamano_${u}`,'IP95_inf','IP95_sup','Estado']];
+  d.samples.forEach(s=>s.bands.forEach((b,j)=>{
+    const pred=b.origin==='predicha';
+    rows.push([s.name,j+1,pred?'predicha':'medida',dec(+b.d.toFixed(3)),dec(b.rf!=null?+b.rf.toFixed(4):null),dec(+b.size.toPrecision(5)),
+      dec(pred?(b.dlo!=null?+b.dlo.toFixed(3):null):(b.lo!=null?+b.lo.toPrecision(5):null)),
+      dec(pred?(b.dhi!=null?+b.dhi.toFixed(3):null):(b.hi!=null?+b.hi.toPrecision(5):null)),stateText(b)]);
+  }));
+  rows.push(['Nota','En bandas predichas, IP95 son distancias en cm; en medidas, tamanos']);
+  rows.push(['Elaborado por','Prof. Jose Miguel Villarreal - Departamento de Quimica, Facultad de Ciencias, Universidad Nacional de Colombia']);
+  rows.push([]);rows.push(['Modelo',MODEL_NAMES[d.key]]);
+  if(d.model.r2!=null) rows.push(['R2',dec(+d.model.r2.toFixed(5))]);
+  rows.push(['Ecuacion',equationText(d)]);
+  const csv='\ufeff'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  download('resultados_gel.csv',new Blob([csv],{type:'text/csv;charset=utf-8'}));
+};
+$('btnSave').onclick=()=>{
+  const inp=readInputs();
+  const data={v:3,gel:inp.gel,title:$('gelTitle').value,modelKey:inp.modelKey,xMode:inp.xMode,front:$('front').value,exclusion:$('exclusion').value,
+    markers:inp.markers.map(m=>({size:m.tr.querySelector('.size').value,dist:m.tr.querySelector('.dist').value})),
+    samples:inp.samples.map(s=>({name:s.name,dists:s.tr.querySelector('.sdist').value,sizes:s.tr.querySelector('.ssize').value}))};
+  download('sesion_gel.json',new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));
+};
+$('btnLoad').onclick=()=>$('fileLoad').click();
+$('fileLoad').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const o=JSON.parse(rd.result);
+      document.querySelector(`input[name=gelType][value=${o.gel==='protein'?'protein':'nucleic'}]`).checked=true;updateUnits();
+      $('gelTitle').value=o.title||'';$('modelKey').value=o.modelKey||'linear';$('xMode').value=o.xMode||'dist';$('front').value=o.front||'';$('exclusion').value=o.exclusion||'';
+      $('markerBody').innerHTML='';(o.markers||[]).forEach(m=>addMarkerRow(m.size,m.dist));
+      $('sampleBody').innerHTML='';(o.samples||[]).forEach(s=>addSampleRow(s.name,s.dists,s.sizes||''));
+      $('markerNote').textContent='';
+      schedule();
+    }catch(err){alert('No se pudo leer la sesión: '+err.message);}
+    e.target.value='';
+  };
+  rd.readAsText(f);
+});
+
+/* ---------- Inicio ---------- */
+(function init(){
+  $('preset').innerHTML=Object.entries(PRESETS).map(([k,p])=>`<option value="${k}">${p.label}</option>`).join('');
+  applyPreset('custom');
+  addSampleRow('Muestra 1','5.8');
+  addSampleRow('Pred. 250 pb','','250 pb');
+  addSampleRow('ADN 4 Mb','','4 Mb');
+  render();
+})();
+</script>
+</body>
+</html>
